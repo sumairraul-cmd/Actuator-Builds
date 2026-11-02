@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Actuator cell planner</title>
+<style>
+:root{
+  color-scheme:light dark;
+  --bg:#eef1f3;--card:#ffffff;--ink:#16252d;--ink2:#52646e;--line:#d5dce1;--accent:#0f5f8c;--accent-bg:#e1eef6;
+  --good:#1c7a45;--good-bg:#e0f2e8;--bad:#b3321f;--bad-bg:#fbe6e1;
+  --F:#cfe3f7;--Ft:#123c63;--O1:#f8d4c6;--O1t:#6b2410;--P:#ddd6f4;--Pt:#35296f;--O2:#cdeadb;--O2t:#0b4a30;--H:#e4e6e8;--Ht:#52646e;--E:#f6e2a8;--Et:#5a4200;--T:#f4cfe0;--Tt:#6b1f45;
+}
+@media (prefers-color-scheme:dark){
+:root{
+  --bg:#12191d;--card:#1b252b;--ink:#e8eef1;--ink2:#9db0ba;--line:#2f3e46;--accent:#6bb7e6;--accent-bg:#1d3646;
+  --good:#6fd39a;--good-bg:#18392a;--bad:#ff9582;--bad-bg:#452019;
+  --F:#1d3f63;--Ft:#cfe3f7;--O1:#6b2f1c;--O1t:#f8d4c6;--P:#40356f;--Pt:#ddd6f4;--O2:#14533a;--O2t:#cdeadb;--H:#2a363d;--Ht:#9db0ba;--E:#5e4a12;--Et:#f6e2a8;--T:#5e2442;--Tt:#f4cfe0;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:1120px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:24px;margin:0 0 4px;font-weight:650}
+h2{font-size:17px;margin:0 0 10px;font-weight:650}
+h3{font-size:14px;margin:14px 0 6px;font-weight:650}
+p{margin:0 0 8px}
+.sub{color:var(--ink2);margin-bottom:16px;max-width:70ch}
+.flow{display:grid;gap:8px;margin-bottom:20px}
+.path{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13.5px}
+.path b{font-weight:650;margin-right:4px;min-width:112px}
+.chip{padding:2px 9px;border-radius:6px;font-size:13px;white-space:nowrap}
+.cF{background:var(--F);color:var(--Ft)}.cO1{background:var(--O1);color:var(--O1t)}.cP{background:var(--P);color:var(--Pt)}.cO2{background:var(--O2);color:var(--O2t)}.cB{background:var(--H);color:var(--Ht)}.cE{background:var(--E);color:var(--Et)}.cT{background:var(--T);color:var(--Tt)}
+.arr{color:var(--ink2)}
+.grid{display:grid;grid-template-columns:330px minmax(0,1fr);gap:20px;align-items:start}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.inputs{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+@media(max-width:860px){.inputs{position:static;max-height:none}}
+.grp{border-top:1px solid var(--line);padding-top:10px;margin-top:12px}
+.grp:first-of-type{border-top:0;padding-top:0;margin-top:0}
+.grp h3{margin-top:0;display:flex;align-items:center;gap:8px}
+.dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+.f{display:grid;grid-template-columns:1fr 84px;gap:8px;align-items:center;margin:6px 0}
+.f label{font-size:13.5px;line-height:1.3}
+.f small{display:block;color:var(--ink2);font-size:12px}
+.f .box{display:flex;align-items:center;gap:4px}
+.f input{width:100%;padding:6px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit;text-align:right}
+.f input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.f .u{font-size:12px;color:var(--ink2);min-width:22px}
+button{font:inherit;font-size:13.5px;padding:6px 11px;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--accent)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.pri{background:var(--accent);color:var(--card);border-color:var(--accent)}
+.right>*+*{margin-top:16px}
+.head{display:grid;gap:12px}
+.big{display:flex;flex-wrap:wrap;gap:22px;align-items:baseline}
+.big .n{font-size:34px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.big .l{font-size:12.5px;color:var(--ink2)}
+.verdict{font-size:15.5px;max-width:75ch}
+.cmp{padding:8px 10px;border-radius:8px;background:var(--accent-bg);font-size:14px}
+.cmp.good{background:var(--good-bg);color:var(--good)}.cmp.bad{background:var(--bad-bg);color:var(--bad)}
+.bars{display:grid;gap:8px}
+.bar{display:grid;grid-template-columns:150px 1fr 54px;gap:10px;align-items:center;font-size:13.5px}
+.track{height:14px;background:var(--H);border-radius:4px;overflow:hidden}
+.fill{height:100%;border-radius:4px}
+.tag{font-size:11.5px;padding:1px 7px;border-radius:5px;background:var(--bad-bg);color:var(--bad);margin-left:6px}
+.warns p{padding:8px 10px;border-radius:8px;background:var(--bad-bg);color:var(--bad);margin:0 0 6px;font-size:14px}
+.warns p.ok{background:var(--good-bg);color:var(--good)}
+svg text{font-family:inherit}
+.lever{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:10px;align-items:center;padding:7px 0;border-top:1px solid var(--line);font-size:14px}
+.lever:first-child{border-top:0}
+.lever .t{font-size:13px;color:var(--ink2);text-align:right;font-variant-numeric:tabular-nums}
+.lv{height:6px;border-radius:3px;background:var(--good);margin-top:4px}
+.step{display:grid;grid-template-columns:64px 112px minmax(0,1fr);gap:10px;padding:7px 0;border-top:1px solid var(--line);font-size:14px;align-items:start}
+.step:first-child{border-top:0}
+.step .tm{font-variant-numeric:tabular-nums;font-weight:650}
+.step .chip{justify-self:start;font-size:12px}
+@media(max-width:560px){.step{grid-template-columns:56px 1fr}.step .chip{display:none}.bar{grid-template-columns:110px 1fr 46px}}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.note{font-size:12.5px;color:var(--ink2)}
+input[type=time]{padding:5px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Actuator cell planner</h1>
+<p class="sub">Type your real numbers on the left. The plan on the right updates straight away: how long the job takes, which machine holds everything up, and exactly what to do and when.</p>
+
+<div class="flow" aria-label="The three part flows">
+  <div class="path"><b>Shaft + rotor</b><span class="chip cF">Input shaft: freezer</span><span class="arr">+</span><span class="chip cO1">Rotor: 130°C oven</span><span class="arr">→</span><span class="chip cP">Press together</span><span class="arr">→</span><span class="chip cE">Glue encoder</span><span class="arr">→</span><span class="chip cO2">Cure at 60°C</span></div>
+  <div class="path"><b>Stator</b><span class="chip cO1">Stator: 130°C oven</span><span class="arr">→</span><span class="chip cP">Press (programmed)</span></div>
+  <div class="path"><b>Output target</b><span class="chip cT">Glue output target</span><span class="arr">→</span><span class="chip cO2">Cure at 60°C</span></div>
+</div>
+
+<div class="grid">
+<div class="panel inputs" id="inputs">
+  <div class="row" style="margin-bottom:10px"><button id="reset">Reset numbers</button><button id="onecell">Switch to one cell</button></div>
+</div>
+
+<div class="right">
+  <div class="panel head">
+    <div class="big" id="big"></div>
+    <p class="verdict" id="verdict"></p>
+    <div id="cmp"></div>
+    <div class="row"><button id="pin">Save this result as "before"</button><button id="unpin">Clear</button></div>
+  </div>
+
+  <div class="panel">
+    <h2>How busy is each machine?</h2>
+    <p class="note">The machine that is busy almost all the time sets your speed. Everything else spends time waiting for it.</p>
+    <div class="bars" id="bars"></div>
+    <div class="warns" id="warns" style="margin-top:12px"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Timeline</h2>
+    <p class="note">Each coloured block is one load. B1 means batch 1. Grey dashed blocks mean finished parts are waiting inside the oven or freezer until the press is free.</p>
+    <div id="gantt"></div>
+  </div>
+
+  <div class="panel">
+    <h2>What would help most?</h2>
+    <p class="note">Each change below is tried on its own with your current numbers.</p>
+    <div id="levers"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Run sheet: what to do and when</h2>
+    <div class="row" style="margin-bottom:8px"><label for="start" class="note">Shift starts at</label><input type="time" id="start" value="07:00"></div>
+    <div id="sheet"></div>
+  </div>
+
+  <p class="note">Assumptions: each glue job runs one unit at a time and is timed to finish just before the load goes into the cure oven, so glue does not sit waiting. Pressed stators need no further curing. Each oven or freezer load takes the full soak time. Parts stay inside the oven or freezer until you pull them for the press.</p>
+</div>
+</div>
+</div>
+
+<script>
+const G=[
+ {t:'What do you need to build?',c:'var(--ink2)',f:[
+  ['total','Actuators in total','',10,1,1,''],
+  ['b','Units per batch','How many you load together',10,1,1,'']]},
+ {t:'Freezer (input shafts)',c:'var(--Ft)',f:[
+  ['cF','Shafts that fit at once','',10,1,1,''],
+  ['tF','Time in freezer','at -30°C',30,1,1,'min']]},
+ {t:'Oven 1 at 130°C (rotors and stators)',c:'var(--O1t)',f:[
+  ['cO1','Parts that fit at once','Rotors and stators share it',20,1,1,''],
+  ['tO','Time in oven','',30,1,1,'min']]},
+ {t:'Press',c:'var(--Pt)',f:[
+  ['pA','Press shaft into rotor','per unit',2.5,0.5,0.5,'min'],
+  ['pS','Press stator','per unit',3,0.5,0.5,'min'],
+  ['win','Longest a part may wait','after leaving oven or freezer, before pressing',3,1,1,'min']]},
+ {t:'Oven 2 at 60°C (curing)',c:'var(--O2t)',f:[
+  ['cO2','Parts that fit at once','',10,1,1,''],
+  ['tC','Cure time','',60,1,1,'min']]},
+ {t:'Glue stations',c:'var(--Et)',f:[
+  ['gE','Glue encoder','per unit, after the shaft + rotor press',2.5,0,0.5,'min'],
+  ['gO','Glue output target','per unit, before curing',2.5,0,0.5,'min']],cb:true},
+ {t:'Walking',c:'var(--ink2)',f:[
+  ['w1','Freezer or oven to press','one way',1,0,1,'min'],
+  ['w2','Glue bench to cure oven','one way',1,0,1,'min'],
+  ['w3','Press to encoder glue bench','one way',1,0,1,'min']]}
+];
+const DEF={},MIN={};
+const box=document.getElementById('inputs');
+G.forEach(g=>{
+  let h='<div class="grp"><h3><span class="dot" style="background:'+g.c+'"></span>'+g.t+'</h3>';
+  g.f.forEach(x=>{DEF[x[0]]=x[3];MIN[x[0]]=x[4];
+    h+='<div class="f"><label for="'+x[0]+'">'+x[1]+(x[2]?'<small>'+x[2]+'</small>':'')+'</label><div class="box"><input id="'+x[0]+'" type="number" inputmode="decimal" min="'+x[4]+'" step="'+x[5]+'" value="'+x[3]+'"><span class="u">'+x[6]+'</span></div></div>'});
+  if(g.cb)h+='<div class="f" style="grid-template-columns:1fr"><label><input type="checkbox" id="shared" style="width:auto;margin-right:6px">Same person or bench does both glue jobs</label></div>';
+  h+='</div>';box.insertAdjacentHTML('beforeend',h);
+});
+function read(){
+  const p={};
+  for(const k in DEF){let v=parseFloat(document.getElementById(k).value);if(isNaN(v)||v<MIN[k])v=Math.max(MIN[k],isNaN(v)?DEF[k]:v);p[k]=v}
+  ['total','b','cF','cO1','cO2'].forEach(k=>p[k]=Math.max(1,Math.round(p[k])));
+  p.total=Math.min(p.total,300);p.shared=document.getElementById('shared').checked;
+  return p;
+}
+const r1=x=>Math.round(x*10)/10;
+const LN={F:'Freezer',O1:'130°C oven',P:'Press',E:'Encoder glue',O:'Output target glue',O2:'60°C cure oven'};
+const COL={F:'var(--F)',O1:'var(--O1)',P:'var(--P)',E:'var(--E)',O:'var(--T)',O2:'var(--O2)'};
+const TXT={F:'var(--Ft)',O1:'var(--O1t)',P:'var(--Pt)',E:'var(--Et)',O:'var(--Tt)',O2:'var(--O2t)'};
+function sizes(p){const full=Math.floor(p.total/p.b),rem=p.total-full*p.b,a=Array(full).fill(p.b);if(rem)a.push(rem);return a}
+function sim(p){
+  const sz=sizes(p),fr={F:0,O1:0,P:0,E:0,O:0,O2:0},bz={F:0,O1:0,P:0,E:0,O:0,O2:0},bl=[],ev=[];
+  const BO=p.shared?'E':'O';
+  let worst=0;
+  const pl=(n,w)=>n+' '+w+(n>1?'s':'');
+  sz.forEach((b,ix)=>{
+    const k=ix+1,nL=Math.ceil(2*b/p.cO1),le=[];
+    for(let i=0;i<nL;i++){
+      const s=fr.O1,e=s+p.tO,lo=i*p.cO1,hi=Math.min(2*b,(i+1)*p.cO1);
+      const r=Math.max(0,Math.min(hi,b)-lo),st=Math.max(0,hi-Math.max(lo,b));
+      fr.O1=e;bz.O1+=p.tO;le.push(e);
+      const what=(r?pl(r,'rotor'):'')+(r&&st?' and ':'')+(st?pl(st,'stator'):'');
+      bl.push({l:'O1',s,e,t:'B'+k,tip:'Batch '+k+': '+what+' in the 130°C oven'});
+      ev.push({t:s,st:'O1',x:'Batch '+k+': put '+what+' in the 130°C oven.',until:e});
+    }
+    const rotLoad=Math.ceil(b/p.cO1)-1,rotEnd=le[rotLoad],stEnd=le[nL-1],nF=Math.ceil(b/p.cF);
+    for(let j=0;j<nF;j++){
+      const s=Math.max(fr.F,rotEnd-p.tF*(nF-j)),e=s+p.tF,n=Math.min(p.cF,b-j*p.cF);
+      fr.F=e;bz.F+=p.tF;
+      bl.push({l:'F',s,e,t:'B'+k,tip:'Batch '+k+': '+pl(n,'input shaft')+' in the freezer'});
+      ev.push({t:s,st:'F',x:'Batch '+k+': put '+pl(n,'input shaft')+' in the freezer.',until:e});
+    }
+    const isEnd=fr.F,nL2=Math.ceil(2*b/p.cO2);
+    let ci=0;
+    const cure=(i,aReady)=>{
+      const lo=i*p.cO2,hi=Math.min(2*b,(i+1)*p.cO2);
+      const nC=Math.max(0,Math.min(hi,b)-lo),nA=Math.max(0,hi-Math.max(lo,b));
+      const gd=nC*p.gO;
+      let s=fr.O2;
+      if(nA)s=Math.max(s,aReady);
+      if(nC)s=Math.max(s,fr[BO]+gd+p.w2);
+      if(nC&&gd>0){
+        const gs=Math.max(fr[BO],s-p.w2-gd),ge=gs+gd;
+        fr[BO]=ge;bz.O+=gd;
+        bl.push({l:'O',s:gs,e:ge,t:'B'+k,tip:'Batch '+k+': glue '+pl(nC,'output target')});
+        ev.push({t:gs,st:'O',x:'Batch '+k+': glue '+pl(nC,'output target')+' (about '+r1(gd)+' min), then carry them to the cure oven.',until:ge,untilLabel:'Done at '});
+      }
+      const e=s+p.tC;
+      fr.O2=e;bz.O2+=p.tC;
+      const what=(nC?pl(nC,'output target'):'')+(nC&&nA?' and ':'')+(nA?(nA>1?nA+' shaft+rotor assemblies':'1 shaft+rotor assembly'):'');
+      bl.push({l:'O2',s,e,t:'B'+k,tip:'Batch '+k+': '+what+' curing at 60°C'});
+      ev.push({t:s,st:'O2',x:'Batch '+k+': put '+what+' in the 60°C cure oven.',until:e,untilLabel:'Ready at '});
+    };
+    while(ci<nL2&&Math.min(2*b,(ci+1)*p.cO2)<=b){cure(ci,0);ci++}
+    const ops=[{n:'A',ready:Math.max(rotEnd,isEnd)+p.w1,u:p.pA},{n:'S',ready:stEnd+p.w1,u:p.pS}].sort((x,y)=>x.ready-y.ready);
+    let endA=0;
+    ops.forEach(o=>{
+      const s=Math.max(fr.P,o.ready),e=s+b*o.u,pull=s-p.w1;
+      fr.P=e;bz.P+=b*o.u;
+      const ex=p.w1+(b-1)*o.u;if(ex>worst)worst=ex;
+      const own=o.n==='A'?rotEnd:stEnd;
+      bl.push({l:'P',s,e,t:'B'+k+(o.n==='A'?' shaft':' stator'),tip:'Batch '+k+': press '+(o.n==='A'?'shaft into rotor':'stator')+' ('+pl(b,'unit')+')'});
+      if(pull>own+0.5)bl.push({l:'O1',s:own,e:pull,t:'wait',h:1,tip:'Parts waiting in the oven for the press'});
+      if(o.n==='S'||rotLoad===nL-1)fr.O1=Math.max(fr.O1,pull);
+      if(o.n==='A'){
+        endA=e;
+        if(pull>isEnd+0.5)bl.push({l:'F',s:isEnd,e:pull,t:'wait',h:1,tip:'Shafts waiting in the freezer for the press'});
+        fr.F=Math.max(fr.F,pull);
+        ev.push({t:pull,st:'P',x:'Batch '+k+': take '+pl(b,'shaft')+' from the freezer and '+pl(b,'rotor')+' from the 130°C oven, walk to the press, press each shaft into its rotor (about '+r1(b*o.u)+' min).',until:e,untilLabel:'Done at '});
+      }else{
+        ev.push({t:pull,st:'P',x:'Batch '+k+': take '+pl(b,'stator')+' from the 130°C oven, walk to the press, press them with the program (about '+r1(b*o.u)+' min).',until:e,untilLabel:'Done at '});
+      }
+    });
+    const gd=b*p.gE,gs=Math.max(fr.E,endA+p.w3),ge=gs+gd;
+    let aReady=endA+p.w3+p.w2;
+    if(gd>0){
+      fr.E=ge;bz.E+=gd;aReady=ge+p.w2;
+      bl.push({l:'E',s:gs,e:ge,t:'B'+k,tip:'Batch '+k+': glue encoders onto '+pl(b,'assembly').replace('assemblys','assemblies')});
+      ev.push({t:gs,st:'E',x:'Batch '+k+': glue the encoders onto '+(b>1?b+' pressed assemblies':'1 pressed assembly')+' (about '+r1(gd)+' min).',until:ge,untilLabel:'Done at '});
+    }
+    while(ci<nL2){cure(ci,aReady);ci++}
+  });
+  const mk=Math.max(fr.O2,fr.P,fr.E,fr.O),bb=Math.min(p.b,p.total);
+  const per={F:Math.ceil(bb/p.cF)*p.tF,O1:Math.ceil(2*bb/p.cO1)*p.tO,P:bb*(p.pA+p.pS),E:bb*(p.shared?p.gE+p.gO:p.gE),O2:Math.ceil(2*bb/p.cO2)*p.tC};
+  if(!p.shared)per.O=bb*p.gO;
+  const bn=Object.keys(per).reduce((a,c)=>per[c]>per[a]?c:a,'F');
+  return{bl,ev,mk,bz,worst,per,bn,thr:p.total/(mk/60)};
+}
+const f=m=>{m=Math.round(m);const h=Math.floor(m/60);return h?h+'h '+String(m%60).padStart(2,'0')+'m':m+' min'};
+function clk(t){const s=document.getElementById('start').value;if(!s)return '+'+f(t);const[a,b]=s.split(':').map(Number);let m=Math.round(a*60+b+t);const d=Math.floor(m/1440);m%=1440;return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0')+(d?' (+'+d+'d)':'')}
+let pinned=null;
+function levers(p,R){
+  const S=[
+    ['Add a second 60°C cure oven (double the cure capacity)',{cO2:p.cO2*2}],
+    ['Use a bigger 130°C oven (double the capacity)',{cO1:p.cO1*2}],
+    ['Use a bigger freezer (double the capacity)',{cF:p.cF*2}],
+    ['Make the press 1 minute faster per unit',{pA:Math.max(0.5,p.pA-1),pS:Math.max(0.5,p.pS-1)}],
+    ['Put freezer, ovens and press in one cell (no walking)',{w1:0,w2:0}],
+    ['Use smaller batches of 3',{b:3}],
+    ['Give each glue job its own person or bench',{shared:false}]
+  ];
+  return S.filter(s=>{for(const k in s[1])if(s[1][k]!==p[k])return true;return false}).map(s=>{
+    const q=Object.assign({},p,s[1]);return{l:s[0],d:R.mk-sim(q).mk,mk:sim(q).mk};
+  }).sort((a,b)=>b.d-a.d);
+}
+function render(){
+  const p=read(),R=sim(p);
+  const ut=n=>Math.min(100,(n==='E'&&p.shared?R.bz.E+R.bz.O:R.bz[n])/R.mk*100);
+  document.getElementById('big').innerHTML=
+    '<div><div class="n">'+f(R.mk)+'</div><div class="l">to build '+p.total+' actuators</div></div>'+
+    '<div><div class="n">'+r1(R.thr)+'</div><div class="l">actuators per hour</div></div>'+
+    '<div><div class="n">'+clk(R.mk)+'</div><div class="l">finish time</div></div>';
+  const bn=R.bn,bnName={F:'The freezer',O1:'The 130°C oven',P:'The press',E:p.shared?'The glue bench':'The encoder glue step',O:'The output target glue step',O2:'The 60°C cure oven'}[bn];
+  const keys=p.shared?['F','O1','P','E','O2']:['F','O1','P','E','O','O2'];
+  const pu=Math.round(ut('P'));
+  document.getElementById('verdict').textContent=bnName+' is what slows you down. Each batch of '+Math.min(p.b,p.total)+' keeps it busy for '+r1(R.per[bn])+' min, so the other stations wait for it. The press is busy only '+pu+'% of the time.';
+  const c=document.getElementById('cmp');
+  if(pinned){const d=pinned.mk-R.mk;c.innerHTML='<div class="cmp '+(d>0.5?'good':d<-0.5?'bad':'')+'">Before: '+f(pinned.mk)+'. Now: '+f(R.mk)+'. '+(d>0.5?'You save '+f(d)+'.':d<-0.5?'It takes '+f(-d)+' longer.':'No change.')+'</div>'}else c.innerHTML='';
+  document.getElementById('bars').innerHTML=keys.map(k=>'<div class="bar"><div>'+(k==='E'&&p.shared?'Glue bench (both jobs)':LN[k])+(k===bn?'<span class="tag">slowest</span>':'')+'</div><div class="track"><div class="fill" style="width:'+ut(k)+'%;background:'+TXT[k]+'"></div></div><div>'+Math.round(ut(k))+'%</div></div>').join('');
+  const w=[];
+  if(R.worst>p.win)w.push('The last part in a batch waits about '+r1(R.worst)+' min between leaving the oven or freezer and being pressed. Your limit is '+p.win+' min. Press smaller groups, or load the oven in a staggered way so parts finish one after another.');
+  if(p.cO1<p.b*2)w.push('Rotors and stators share the 130°C oven. A batch of '+p.b+' needs '+(2*p.b)+' places, but it holds '+p.cO1+', so it runs in '+Math.ceil(2*p.b/p.cO1)+' rounds.');
+  if(p.cO2<p.b*2)w.push('The 60°C oven cures '+(2*p.b)+' items per batch (shaft+rotor assemblies and output targets) but holds '+p.cO2+', so it runs in '+Math.ceil(2*p.b/p.cO2)+' rounds of '+p.tC+' min.');
+  document.getElementById('warns').innerHTML=w.length?w.map(x=>'<p>'+x+'</p>').join(''):'<p class="ok">No timing problems found with these numbers.</p>';
+  const W=760,LW=128,PW=W-LW-12,LH=32,GP=7,lanes=['F','O1','P','E','O','O2'],H=lanes.length*(LH+GP)+22,X=t=>LW+t/R.mk*PW;
+  let s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Timeline of freezer, oven, press and cure oven use">';
+  lanes.forEach((l,i)=>{const y=i*(LH+GP);s+='<rect x="'+LW+'" y="'+y+'" width="'+PW+'" height="'+LH+'" rx="5" fill="var(--bg)"/><text x="'+(LW-8)+'" y="'+(y+LH/2+4)+'" text-anchor="end" font-size="12.5" fill="var(--ink2)">'+LN[l]+'</text>'});
+  const step=R.mk>720?120:R.mk>360?60:30,base=lanes.length*(LH+GP);
+  for(let t=0;t<=R.mk;t+=step){s+='<line x1="'+X(t)+'" x2="'+X(t)+'" y1="0" y2="'+(base-GP)+'" stroke="var(--line)" stroke-width="1"/><text x="'+X(t)+'" y="'+(base+10)+'" text-anchor="middle" font-size="11.5" fill="var(--ink2)">'+(t%60===0?(t/60)+'h':f(t))+'</text>'}
+  R.bl.forEach(b=>{const i=lanes.indexOf(b.l),y=i*(LH+GP)+3,x=X(b.s),w=Math.max(1.5,X(b.e)-X(b.s)),h=LH-6;
+    s+='<g><title>'+b.tip+' ('+clk(b.s)+' to '+clk(b.e)+')</title><rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="4" fill="'+(b.h?'var(--H)':COL[b.l])+'"'+(b.h?' stroke="var(--ink2)" stroke-dasharray="3 3"':'')+'/>';
+    if(w>42&&!b.h)s+='<text x="'+(x+w/2)+'" y="'+(y+h/2+4)+'" text-anchor="middle" font-size="11.5" fill="'+TXT[b.l]+'">'+(w<72?b.t.split(' ')[0]:b.t)+'</text>';
+    s+='</g>'});
+  document.getElementById('gantt').innerHTML=s+'</svg>';
+  const L=levers(p,R);
+  const mx=Math.max(1,...L.map(x=>Math.abs(x.d)));
+  document.getElementById('levers').innerHTML=L.map(x=>{
+    const good=x.d>0.5,bad=x.d<-0.5;
+    return '<div class="lever"><div>'+x.l+(good?'<div class="lv" style="width:'+Math.max(4,x.d/mx*100)+'%"></div>':'')+'</div><div class="t" style="'+(bad?'color:var(--bad)':good?'color:var(--good)':'')+'">'+(good?'saves '+f(x.d):bad?'adds '+f(-x.d):'no change')+'<br>total '+f(x.mk)+'</div></div>'}).join('');
+  const ev=R.ev.slice().sort((a,b)=>a.t-b.t);
+  const lab={F:'Freezer',O1:'130°C oven',P:'Press',E:'Encoder glue',O:'Target glue',O2:'60°C cure oven'},cl={F:'cF',O1:'cO1',P:'cP',E:'cE',O:'cT',O2:'cO2'};
+  document.getElementById('sheet').innerHTML=ev.map(e=>'<div class="step"><div class="tm">'+clk(e.t)+'</div><div><span class="chip '+cl[e.st]+'">'+lab[e.st]+'</span></div><div>'+e.x+(e.until!==undefined?' <span class="note">'+(e.untilLabel||'Ready at ')+clk(e.until)+'.</span>':'')+'</div></div>').join('');
+}
+document.querySelectorAll('#inputs input,#start').forEach(i=>{i.addEventListener('input',render);i.addEventListener('change',render)});
+document.getElementById('reset').onclick=()=>{for(const k in DEF)document.getElementById(k).value=DEF[k];document.getElementById('shared').checked=false;render()};
+document.getElementById('onecell').onclick=()=>{document.getElementById('w1').value=1;document.getElementById('w2').value=1;document.getElementById('w3').value=1;render()};
+document.getElementById('pin').onclick=()=>{const R=sim(read());pinned={mk:R.mk};render()};
+document.getElementById('unpin').onclick=()=>{pinned=null;render()};
+render();
+</script>
+</body>
+</html>
